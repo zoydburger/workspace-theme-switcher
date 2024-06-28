@@ -7,17 +7,46 @@
     "vscode": "^1.90.0"
   },
   "categories": [
-    "Other"
+    "Themes"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onDidChangeActiveTextEditor",
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "workspace-theme-switcher.helloWorld",
-        "title": "Hello World"
+    "configuration": {
+      "type": "object",
+      "title": "Workspace Theme Switcher Configuration",
+      "properties": {
+        "workspace-theme-switcher": {
+          "type": "object",
+          "properties": {
+            "workspaces": {
+              "type": "array",
+              "contains": true,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the workspace"
+                  },
+                  "theme": {
+                    "type": "string",
+                    "description": "Theme to apply when workspace is opened"
+                  }
+                }
+              }
+            },
+            "defaultTheme": {
+              "type": "string",
+              "description": "Default theme to apply when file cannot be matched"
+            }
+          }
+        }
       }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
