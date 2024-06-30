@@ -1,6 +1,6 @@
 # Workspace Theme Switcher
 
-<img src="./img/banner.gif" alt="" />
+<img src="https://github.com/zoydburger/workspace-theme-switcher/blob/69c5ead756cfcfebb26761c1f4e2ab478028530c/img/banner.gif" alt="" />
 
 ## Features
 
