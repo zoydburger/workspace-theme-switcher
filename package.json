@@ -4,7 +4,7 @@
   "publisher": "zoydburger",
   "description": "A small Visual Studio Code extension that allows to specify themes based on the currently opened editor",
   "icon": "img/logo.png",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
