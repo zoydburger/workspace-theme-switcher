@@ -1,10 +1,17 @@
 {
   "name": "workspace-theme-switcher",
-  "displayName": "workspace-theme-switcher",
+  "displayName": "Workspace Theme Switcher",
+  "publisher": "zoydburger",
   "description": "A small Visual Studio Code extension that allows to specify themes based on the currently opened editor",
+  "icon": "img/logo.png",
   "version": "0.0.1",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zoydburger/workspace-theme-switcher"
   },
   "categories": [
     "Themes"
@@ -15,35 +22,52 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "workspace-theme-switcher.enable",
+        "title": "Enable Theme Switching"
+      },
+      {
+        "command": "workspace-theme-switcher.disable",
+        "title": "Disable Theme Switching"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Workspace Theme Switcher Configuration",
       "properties": {
-        "workspace-theme-switcher": {
-          "type": "object",
-          "properties": {
-            "workspaces": {
-              "type": "array",
-              "contains": true,
-              "items": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string",
-                    "description": "Path to the workspace"
-                  },
-                  "theme": {
-                    "type": "string",
-                    "description": "Theme to apply when workspace is opened"
-                  }
-                }
+        "workspace-theme-switcher.workspaces": {
+          "type": "array",
+          "contains": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to the workspace"
+              },
+              "theme": {
+                "type": "string",
+                "description": "Theme to apply when editor in workspace is opened",
+                "examples": [
+                  "Default Dark+",
+                  "Default Dark Modern",
+                  "Default Light+",
+                  "Default Light Modern",
+                  "Visual Studio Dark",
+                  "Visual Studio Light",
+                  "Default High Contrast",
+                  "Default High Contrast Light",
+                  "Abyss",
+                  "Monokai Dimmed"
+                ]
               }
-            },
-            "defaultTheme": {
-              "type": "string",
-              "description": "Default theme to apply when file cannot be matched"
             }
           }
+        },
+        "workspace-theme-switcher.defaultTheme": {
+          "type": "string",
+          "description": "Default theme to apply when file cannot be matched"
         }
       }
     }
@@ -60,7 +84,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "build:vsix": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.90.0",
