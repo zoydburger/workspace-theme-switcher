@@ -1,202 +1,147 @@
 import * as vscode from 'vscode';
+import z from 'zod';
 import path from 'path';
 import fs from 'fs';
-import { error } from 'console';
+import packageJSON from '~/package.json';
 
-const LOGGING_PREFIX = '[workspace-theme-switcher]';
-const CONFIG_PREFIX = 'workspace-theme-switcher';
-const THEME_CONFIG_KEY = 'workbench.colorTheme';
+const CURRENT_THEME_KEY = 'currentTheme';
 
-enum Settings {
-  WORKSPACES = `${CONFIG_PREFIX}.workspaces`,
-  THEME_DEFAULT = `${CONFIG_PREFIX}.defaultTheme`,
-  THEME_WORKBENCH = 'workbench.colorTheme',
-  SCHEMA = '$schema',
-}
+let activationTimeout: NodeJS.Timeout | undefined;
 
-enum Themes {
-  ABYSS = 'Abyss',
-  MONOKAI_DIMMED = 'Monokai Dimmed',
-}
+const config =
+  packageJSON.contributes.configuration.properties['workspace-theme-switcher'];
 
-type Config = {
-  defaultTheme: string;
-  workspaces: Array<{ path: string; theme: string }>;
-  disabled: boolean;
-};
-
-const DEFAULT_SETTINGS = {
-  [Settings.THEME_DEFAULT]: Themes.ABYSS,
-  [Settings.WORKSPACES]: [
-    {
-      path: '',
-      theme: Themes.ABYSS,
-    },
-    {
-      path: '.vscode',
-      theme: Themes.MONOKAI_DIMMED,
-    },
-  ],
-};
-
-const DEFAULT_BASE_SETTINGS = {
-  [Settings.SCHEMA]: 'vscode://schemas/settings/workspace',
-  ...DEFAULT_SETTINGS,
-};
-
-function getRootPath() {
-  const { workspaceFolders } = vscode.workspace;
-  const rootPath = workspaceFolders
-    ? workspaceFolders[0].uri.fsPath
-    : undefined;
-
-  if (rootPath === undefined) {
-    throw new Error('Could not determine root path');
-  }
-  return rootPath;
-}
-
-async function init() {
-  const rootPath = getRootPath();
-  const settingsPath = path.join(rootPath, '.vscode', 'settings.json');
-  const settingsBasePath = path.join(rootPath, '.vscode', 'settings.base.json');
-  const hasSettings = fs.existsSync(settingsPath);
-  const hasSettingsBase = fs.existsSync(settingsBasePath);
-
-  if (!hasSettings && !hasSettingsBase) {
-    const settings = JSON.stringify(DEFAULT_SETTINGS, null, 4);
-    const baseSettings = JSON.stringify(DEFAULT_BASE_SETTINGS, null, 4);
-    fs.writeFileSync(settingsPath, settings);
-    fs.writeFileSync(settingsBasePath, baseSettings);
-    vscode.window.showInformationMessage('succesfully nitialized with theme');
-    return;
-  }
-
-  if (!hasSettingsBase) {
-    const baseSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    if (baseSettings.hasOwnProperty(Settings.THEME_WORKBENCH)) {
-      const defaultTheme = baseSettings[Settings.THEME_WORKBENCH];
-      delete baseSettings[Settings.THEME_WORKBENCH];
-      baseSettings[Settings.THEME_DEFAULT] = defaultTheme;
-    }
-    fs.writeFileSync(settingsBasePath, JSON.stringify(baseSettings, null, 4));
-    return;
-  }
-
-  const settingsBase = JSON.parse(fs.readFileSync(settingsBasePath, 'utf8'));
-  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-  fs.writeFileSync(
-    settingsPath,
-    JSON.stringify(
-      {
-        ...settingsBase,
-        ...settings,
-      },
-      null,
-      4
+const settingsSchema = z.object({
+  workspaces: z
+    .array(
+      z.object({
+        path: z.string(),
+        theme: z.string(),
+      })
     )
+    .optional()
+    .default(config.properties.workspaces.default),
+  defaultTheme: z
+    .string()
+    .optional()
+    .default(config.properties.defaultTheme.default),
+  activationDelay: z
+    .number()
+    .optional()
+    .default(config.properties.activationDelay.default),
+});
+
+type Settings = z.infer<typeof settingsSchema>;
+
+let themeNameToPath: Record<string, string> = {};
+let statusBarItem: vscode.StatusBarItem;
+const workspaces: Settings['workspaces'] = [];
+const rootPath = vscode.workspace.workspaceFolders
+  ? vscode.workspace.workspaceFolders[0].uri.fsPath
+  : '';
+
+function initStatusBarItem(context: vscode.ExtensionContext) {
+  statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    10
   );
+  updateStatusBarItem(context);
+  statusBarItem.show();
 }
 
-export async function activate(context: vscode.ExtensionContext) {
+function updateStatusBarItem(context: vscode.ExtensionContext) {
+  const theme = context.workspaceState.get(CURRENT_THEME_KEY);
+  statusBarItem.text = `Dynamic Theme <${theme}>`;
+}
+
+function updateThemeNameToPath() {
+  themeNameToPath = {};
+  for (const extension of vscode.extensions.all) {
+    const { contributes, name } = extension.packageJSON;
+    if (name === packageJSON.name) continue;
+    const extensionPath = extension.extensionUri.fsPath;
+    for (const theme of contributes?.themes ?? []) {
+      themeNameToPath[theme.label] = path.join(extensionPath, theme.path);
+    }
+  }
+}
+
+function updateWorkspaces() {
   const config = vscode.workspace.getConfiguration();
+  const setttings = settingsSchema.parse(
+    config.get<Settings>(packageJSON.name)
+  );
+  workspaces.splice(0, workspaces.length, ...setttings.workspaces);
+  workspaces.sort((a, b) => b.path.length - a.path.length);
+}
 
-  vscode.workspace.rootPath;
-
-  console.log('dirname', __dirname);
-
-  init();
-
-  logger.info('Extension activated');
+function updateTheme(context: vscode.ExtensionContext) {
+  if (activationTimeout) {
+    clearTimeout(activationTimeout);
+    activationTimeout = undefined;
+  }
 
   const editor = vscode.window.activeTextEditor;
-  if (editor !== undefined) {
-    const filePath = editor.document.uri.fsPath;
-    const newTheme = setThemeForFile(filePath, config);
-    vscode.window.showInformationMessage(`Initialized theme '${newTheme}'`);
-  }
-
-  const onChangeEditor = vscode.window.onDidChangeActiveTextEditor((editor) => {
-    const extensionConfig = config.get<Config>(CONFIG_PREFIX);
-    if (editor) {
-      const filePath = editor.document.uri.fsPath;
-      const config = vscode.workspace.getConfiguration();
-      setThemeForFile(filePath, config);
-    }
-  });
-
-  context.subscriptions.push(onChangeEditor);
-
-  // command to disable the extension
-  const disableExtensionCommand = vscode.commands.registerCommand(
-    'workspace-theme-switcher.disable',
-    () =>
-      context.workspaceState.update('isEnabled', false).then(() => {
-        vscode.window.showInformationMessage('Extension disabled!');
-      })
-  );
-
-  const enableExtensionCommand = vscode.commands.registerCommand(
-    'workspace-theme-switcher.enable',
-    () =>
-      context.workspaceState.update('isEnabled', true).then(() => {
-        vscode.window.showInformationMessage('Extension enabled!');
-      })
-  );
-
-  context.subscriptions.push(disableExtensionCommand);
-  context.subscriptions.push(enableExtensionCommand);
-}
-
-function setThemeForFile(
-  filePath: string,
-  config: vscode.WorkspaceConfiguration
-): string | undefined {
-  const rootPath = getRootPath();
-  const workspaces = config.get<Config['workspaces']>(
-    `${CONFIG_PREFIX}.workspaces`
-  );
-  if (workspaces === undefined || workspaces.length === 0) {
-    logger.warn('No workspaces configured');
-    return;
-  }
-
-  workspaces.sort((a, b) => b.path.length - a.path.length);
+  if (!editor) return;
+  const filePath = path.resolve(editor.document.uri.fsPath);
   const workspace = workspaces.find((workspace) =>
     filePath.startsWith(path.join(rootPath, workspace.path))
   );
+  const currentTheme = context.workspaceState.get(CURRENT_THEME_KEY);
 
-  const theme =
-    workspace?.theme ??
-    config.get<Config['defaultTheme']>(`${CONFIG_PREFIX}.defaultTheme`);
-
-  if (!theme) {
-    logger.warn('No theme found for file');
-    return;
+  if (workspace && workspace.theme !== currentTheme) {
+    const config = vscode.workspace.getConfiguration();
+    const setttings = settingsSchema.parse(
+      config.get<Settings>(packageJSON.name)
+    );
+    const dynamicThemePath = path.join(
+      context.extensionPath,
+      'themes/dynamic.json'
+    );
+    const themePath = themeNameToPath[workspace.theme];
+    activationTimeout = setTimeout(() => {
+      fs.copyFileSync(themePath, dynamicThemePath);
+      context.workspaceState.update(CURRENT_THEME_KEY, workspace.theme);
+      updateStatusBarItem(context);
+    }, setttings.activationDelay);
   }
-
-  if (theme !== config.get(THEME_CONFIG_KEY)) {
-    config
-      .update(THEME_CONFIG_KEY, theme, vscode.ConfigurationTarget.Workspace)
-      .then(
-        () => {
-          logger.info(`Theme '${theme}' activated.`);
-        },
-        (error) => {
-          logger.error('Error updating theme', error);
-        }
-      );
-  }
-  return theme;
 }
+
+export function activate(context: vscode.ExtensionContext) {
+  if (rootPath === '') {
+    throw new Error('Could not determine root path');
+  }
+
+  updateThemeNameToPath();
+  updateWorkspaces();
+  initStatusBarItem(context);
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(() => updateTheme(context))
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration(packageJSON.name)) {
+        updateWorkspaces();
+        updateTheme(context);
+      }
+    })
+  );
+
+  vscode.extensions.onDidChange(() => {
+    updateThemeNameToPath();
+    updateTheme(context);
+  });
+}
+
+export function deactivate() {}
 
 const logger = {
   error: (...message: Array<string | Object>) =>
-    console.error(`${LOGGING_PREFIX} ${message}`),
+    console.error(`[${packageJSON.name}] ${message}`),
   warn: (...message: Array<string | Object>) =>
-    console.warn(`${LOGGING_PREFIX} ${message}`),
+    console.warn(`[${packageJSON.name}] ${message}`),
   info: (...message: Array<string | Object>) =>
-    console.log(`${LOGGING_PREFIX} ${message}`),
+    console.log(`[${packageJSON.name}] ${message}`),
 };
-
-export function deactivate() {}
