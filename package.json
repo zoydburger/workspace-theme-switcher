@@ -4,7 +4,7 @@
   "publisher": "zoydburger",
   "description": "A small Visual Studio Code extension that allows to specify themes based on the currently opened editor",
   "icon": "img/logo.png",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
@@ -14,7 +14,22 @@
     "url": "https://github.com/zoydburger/workspace-theme-switcher"
   },
   "categories": [
-    "Themes"
+    "Themes",
+    "Other"
+  ],
+  "keywords": [
+    "theme",
+    "workspace",
+    "monorepo",
+    "vscode",
+    "extension",
+    "editor",
+    "switch",
+    "settings",
+    "theming",
+    "color",
+    "folder",
+    "customization"
   ],
   "activationEvents": [
     "onDidChangeActiveTextEditor",
@@ -24,50 +39,79 @@
   "contributes": {
     "commands": [
       {
-        "command": "workspace-theme-switcher.enable",
-        "title": "Enable Theme Switching"
-      },
+        "command": "workspace-theme-switcher.reloadThemes",
+        "title": "Workspace Theme Switcher: Reload Themes (needed after new theme installation)"
+      }
+    ],
+    "themes": [
       {
-        "command": "workspace-theme-switcher.disable",
-        "title": "Disable Theme Switching"
+        "label": "Dynamic",
+        "path": "./themes/dynamic.json"
       }
     ],
     "configuration": {
       "type": "object",
       "title": "Workspace Theme Switcher Configuration",
       "properties": {
-        "workspace-theme-switcher.workspaces": {
-          "type": "array",
-          "contains": true,
-          "items": {
-            "type": "object",
-            "properties": {
-              "path": {
-                "type": "string",
-                "description": "Path to the workspace"
+        "workspace-theme-switcher": {
+          "type": "object",
+          "properties": {
+            "workspaces": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the workspace"
+                  },
+                  "theme": {
+                    "type": "string",
+                    "description": "Theme to apply when a file in this workspace is opened",
+                    "examples": [
+                      "Default Dark+",
+                      "Default Dark Modern",
+                      "Default Light+",
+                      "Default Light Modern",
+                      "Visual Studio Dark",
+                      "Visual Studio Light",
+                      "Default High Contrast",
+                      "Default High Contrast Light",
+                      "Abyss",
+                      "Monokai Dimmed",
+                      "Tomorrow Night Blue",
+                      "Solarized Dark"
+                    ]
+                  }
+                }
               },
-              "theme": {
-                "type": "string",
-                "description": "Theme to apply when editor in workspace is opened",
-                "examples": [
-                  "Default Dark+",
-                  "Default Dark Modern",
-                  "Default Light+",
-                  "Default Light Modern",
-                  "Visual Studio Dark",
-                  "Visual Studio Light",
-                  "Default High Contrast",
-                  "Default High Contrast Light",
-                  "Abyss",
-                  "Monokai Dimmed"
-                ]
-              }
+              "default": []
+            },
+            "defaultTheme": {
+              "type": "string",
+              "description": "Default theme to apply when file cannot be matched to a workspace",
+              "default": "Abyss",
+              "examples": [
+                "Default Dark+",
+                "Default Dark Modern",
+                "Default Light+",
+                "Default Light Modern",
+                "Visual Studio Dark",
+                "Visual Studio Light",
+                "Default High Contrast",
+                "Default High Contrast Light",
+                "Abyss",
+                "Monokai Dimmed",
+                "Tomorrow Night Blue",
+                "Solarized Dark"
+              ]
+            },
+            "activationDelay": {
+              "type": "number",
+              "description": "Delay in milliseconds before switching themes",
+              "default": 0
             }
           }
-        },
-        "workspace-theme-switcher.defaultTheme": {
-          "type": "string",
-          "description": "Default theme to apply when file cannot be matched"
         }
       }
     }
@@ -88,16 +132,19 @@
     "build:vsix": "vsce package"
   },
   "devDependencies": {
-    "@types/vscode": "^1.90.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "20.x",
+    "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
-    "eslint": "^8.57.0",
-    "esbuild": "^0.21.5",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.4.5",
     "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.4.0"
+    "@vscode/test-electron": "^2.4.0",
+    "esbuild": "^0.21.5",
+    "eslint": "^8.57.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "zod": "3.23.8"
   }
 }

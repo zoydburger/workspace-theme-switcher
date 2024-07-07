@@ -1,14 +1,3 @@
 {
-  "workspace-theme-switcher.defaultTheme": "Abyss",
-  "workspace-theme-switcher.workspaces": [
-    {
-      "path": "",
-      "theme": "Abyss"
-    },
-    {
-      "path": ".vscode",
-      "theme": "Monokai Dimmed"
-    }
-  ],
-  "workbench.colorTheme": "Abyss"
+  "workbench.colorTheme": "Night Owl"
 }
