@@ -1,5 +1,3 @@
-# Workspace Theme Switcher
-
 <img src="https://github.com/zoydburger/workspace-theme-switcher/blob/440feb43fdb8ef416afba62e072571ba640334f0/img/banner.png" alt="banner">
 <img src="https://github.com/zoydburger/workspace-theme-switcher/blob/440feb43fdb8ef416afba62e072571ba640334f0/img/banner.gif" alt="showcase" />
 
