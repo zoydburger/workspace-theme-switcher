@@ -4,7 +4,7 @@
   "publisher": "zoydburger",
   "description": "A small Visual Studio Code extension that allows to specify themes based on the currently opened editor",
   "icon": "img/logo.png",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
@@ -40,7 +40,7 @@
     "commands": [
       {
         "command": "workspace-theme-switcher.reloadThemes",
-        "title": "Workspace Theme Switcher: Reload Themes (needed after new theme installation)"
+        "title": "Workspace Theme Switcher: Reload Themes"
       }
     ],
     "themes": [
@@ -129,7 +129,8 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "build:vsix": "vsce package"
+    "build:vsix": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
