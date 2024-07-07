@@ -8,7 +8,7 @@ const CURRENT_THEME_KEY = 'currentTheme';
 
 let activationTimeout: NodeJS.Timeout | undefined;
 
-const config =
+const { properties } =
   packageJSON.contributes.configuration.properties['workspace-theme-switcher'];
 
 const settingsSchema = z.object({
@@ -20,15 +20,12 @@ const settingsSchema = z.object({
       })
     )
     .optional()
-    .default(config.properties.workspaces.default),
-  defaultTheme: z
-    .string()
-    .optional()
-    .default(config.properties.defaultTheme.default),
+    .default(properties.workspaces.default),
+  defaultTheme: z.string().optional().default(properties.defaultTheme.default),
   activationDelay: z
     .number()
     .optional()
-    .default(config.properties.activationDelay.default),
+    .default(properties.activationDelay.default),
 });
 
 type Settings = z.infer<typeof settingsSchema>;
@@ -36,9 +33,6 @@ type Settings = z.infer<typeof settingsSchema>;
 let themeNameToPath: Record<string, string> = {};
 let statusBarItem: vscode.StatusBarItem;
 const workspaces: Settings['workspaces'] = [];
-const rootPath = vscode.workspace.workspaceFolders
-  ? vscode.workspace.workspaceFolders[0].uri.fsPath
-  : '';
 
 function initStatusBarItem(context: vscode.ExtensionContext) {
   statusBarItem = vscode.window.createStatusBarItem(
@@ -82,7 +76,20 @@ function updateTheme(context: vscode.ExtensionContext) {
   }
 
   const editor = vscode.window.activeTextEditor;
-  if (!editor) return;
+  if (!editor) {
+    logger.warn('No active text editor');
+    return;
+  }
+
+  const rootPath = vscode.workspace.workspaceFolders
+    ? vscode.workspace.workspaceFolders[0].uri.fsPath
+    : undefined;
+
+  if (!rootPath) {
+    logger.error('Could not determine root path');
+    return;
+  }
+
   const filePath = path.resolve(editor.document.uri.fsPath);
   const workspace = workspaces.find((workspace) =>
     filePath.startsWith(path.join(rootPath, workspace.path))
@@ -108,12 +115,24 @@ function updateTheme(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  if (rootPath === '') {
-    throw new Error('Could not determine root path');
+  const config = vscode.workspace.getConfiguration();
+  const settings = settingsSchema.parse(config.get<Settings>(packageJSON.name));
+  const workbenchTheme = config.get<string>('workbench.colorTheme');
+
+  if (workbenchTheme !== packageJSON.contributes.themes[0].label) {
+    config.update(packageJSON.name, {
+      ...settings,
+      defaultTheme: workbenchTheme,
+    });
+    config.update(
+      'workbench.colorTheme',
+      packageJSON.contributes.themes[0].label
+    );
   }
 
   updateThemeNameToPath();
   updateWorkspaces();
+  updateTheme(context);
   initStatusBarItem(context);
 
   context.subscriptions.push(
@@ -135,7 +154,9 @@ export function activate(context: vscode.ExtensionContext) {
   });
 }
 
-export function deactivate() {}
+export function deactivate() {
+  logger.info('Deactivated');
+}
 
 const logger = {
   error: (...message: Array<string | Object>) =>
